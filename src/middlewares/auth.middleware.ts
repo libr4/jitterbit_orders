@@ -1,29 +1,28 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import config from '../config';
-import createError from 'http-errors';
+import authService from '../services/auth.service';
+import { extractToken } from '../utils/token';
+import { TokenPayload } from '../services/auth.service';
 
 export interface AuthRequest extends Request {
-  user?: any;
+  user?: TokenPayload;
 }
 
+/**
+ * Verify JWT token and attach decoded payload to req.user.
+ * Expects token in cookie (set by /auth/login) or Authorization: Bearer <token> header.
+ * Route-level whitelisting is handled at the route/app level, not here.
+ * 
+ * All errors are passed to the global error handler for consistent HTTP formatting.
+ */
 const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (req.path === '/docs' || req.path.startsWith('/docs/')) return next();
-  if (req.path === '/auth/login') return next();
-
-  const auth = req.headers['authorization'];
-  if (!auth) return next(createError(401, 'Missing Authorization header', { code: 'AUTH_ERROR' }));
-  const parts = auth.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') return next(createError(401, 'Invalid Authorization header', { code: 'AUTH_ERROR' }));
-
-  const token = parts[1];
-
   try {
-    const payload = jwt.verify(token, config.JWT_SECRET);
+    const token = extractToken(req);
+    const payload = authService.verify(token);
     req.user = payload;
     next();
   } catch (err) {
-    return next(createError(401, 'Invalid token', { code: 'AUTH_ERROR' }));
+    // Pass domain errors to global error handler
+    next(err);
   }
 };
 
