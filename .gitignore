@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.test
+coverage
+.prisma
+.idea
+.vscode
+npm-debug.log

@@ -1,0 +1,164 @@
+openapi: 3.0.0
+info:
+  title: Orders API
+  version: "1.0.0"
+paths:
+  /auth/login:
+    post:
+      summary: Login to receive JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+            example:
+              username: "dev"
+              password: "dev"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              example:
+                token: "jwt-token"
+        "400":
+          description: Validation error
+        "401":
+          description: Invalid credentials
+  /order:
+    post:
+      summary: Create order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncomingOrder'
+            example:
+              numeroPedido: "v10089015vdb-01"
+              valorTotal: 10000
+              dataCriacao: "2023-07-19T12:24:11.5299601+00:00"
+              items:
+                - idItem: "2434"
+                  quantidadeItem: 1
+                  valorItem: 1000
+      responses:
+        "201":
+          description: Created
+  /order/{orderId}:
+    get:
+      summary: Get order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    put:
+      summary: Replace order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/IncomingOrder'
+                - $ref: '#/components/schemas/MappedOrder'
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Delete order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /order/list:
+    get:
+      summary: List orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: size
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    IncomingOrder:
+      type: object
+      properties:
+        numeroPedido:
+          type: string
+        valorTotal:
+          type: number
+        dataCriacao:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              idItem:
+                type: string
+              quantidadeItem:
+                type: integer
+              valorItem:
+                type: number
+    MappedOrder:
+      type: object
+      properties:
+        orderId:
+          type: string
+        value:
+          type: number
+        creationDate:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: integer
+              quantity:
+                type: integer
+              price:
+                type: number
