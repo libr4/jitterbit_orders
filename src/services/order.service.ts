@@ -13,7 +13,7 @@ type MappedOrder = { orderId: string; value: number; creationDate: string; items
 
 // Accepts either the incoming raw format or the already-mapped format and
 // returns a normalized MappedOrder suitable for persistence.
-export const normalizeOrderPayload = (body: any): MappedOrder => {
+const normalizeOrderPayload = (body: any): MappedOrder => {
   // If already matches mapped schema, return it
   try {
     const mapped = mappedOrderSchema.parse(body);
@@ -61,11 +61,12 @@ export const formatOrderDto = (o: any) => {
   };
 };
 
-const createOrder = async (order: MappedOrder) => {
+const createOrder = async (order: any) => {
   try {
+    const mapped = normalizeOrderPayload(order);
     const created = await prisma.$transaction(async (tx) => {
-      const o = await repo.createOrderTx(tx, order);
-      const items = order.items.map((it) => repo.createItemTx(tx, { orderId: o.orderId, ...it }));
+      const o = await repo.createOrderTx(tx, mapped);
+      const items = mapped.items.map((it) => repo.createItemTx(tx, { orderId: o.orderId, ...it }));
       await Promise.all(items);
       const result = await repo.findOrder(o.orderId, tx);
       return result;
@@ -97,19 +98,18 @@ const listOrders = async (page = 1, size = 10) => {
   return { total, page, size, data };
 };
 
-const updateOrder = async (orderId: string, order: MappedOrder) => {
+const updateOrder = async (orderId: string, order: any) => {
   const existing = await repo.findOrder(orderId);
   if (!existing) throw new NotFoundError('Order not found');
-  
+  const mapped = normalizeOrderPayload(order);
   const updated = await prisma.$transaction(async (tx) => {
     await repo.deleteItemsTx(tx, orderId);
-    await repo.updateOrderTx(tx, orderId, order);
-    const items = order.items.map((it) => repo.createItemTx(tx, { orderId, ...it }));
+    await repo.updateOrderTx(tx, orderId, mapped);
+    const items = mapped.items.map((it) => repo.createItemTx(tx, { orderId, ...it }));
     await Promise.all(items);
     const result = await repo.findOrder(orderId, tx);
     return result;
   });
-  
   return updated;
 };
 
