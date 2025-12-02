@@ -96,3 +96,33 @@ describe('API /order (integration)', () => {
     expect(getRes.status).toBe(404);
   });
 });
+
+it('rejects unauthorized create (no token)', async () => {
+  const res = await http().post('/order').send(sampleIncoming);
+  expect(res.status).toBe(401);
+  expect(res.body.error).toBeDefined();
+});
+
+it('create with empty items returns 400', async () => {
+  const bad = {
+    ...sampleIncoming,
+    numeroPedido: 'v-empty-items-01',
+    items: []
+  };
+  const res = await http().post('/order').set('Authorization', `Bearer ${token}`).send(bad);
+  expect(res.status).toBe(400);
+  expect(res.body.error).toBeDefined();
+});
+
+it('update non-existent order returns 404', async () => {
+  const upd = {
+    numeroPedido: 'v-unknown-01',
+    valorTotal: 5000,
+    dataCriacao: '2023-08-01T12:00:00Z',
+    items: [{ idItem: '7000', quantidadeItem: 1, valorItem: 5000 }]
+  };
+  const res = await http().put('/order/v-unknown-01').set('Authorization', `Bearer ${token}`).send(upd);
+  expect(res.status).toBe(404);
+  expect(res.body.error).toBeDefined();
+});
+

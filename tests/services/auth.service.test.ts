@@ -15,4 +15,9 @@ describe('Auth Service (unit - domain rules)', () => {
   it('verify throws InvalidTokenError for bad token', () => {
     expect(() => authService.verify('bad.token.here')).toThrow(InvalidTokenError);
   });
+  it('authenticate returns a token that verify accepts', () => {
+  const { token } = authService.authenticate('dev', 'dev');
+  const payload = authService.verify(token);
+  expect(payload).toBeDefined();
+});
 });
