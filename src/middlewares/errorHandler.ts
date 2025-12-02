@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { DomainError } from '../errors/domain/DomainError';
+import logger from '../utils/logger';
 
 /**
  * Maps domain error codes to HTTP status codes.
@@ -30,8 +31,9 @@ const domainErrorToHttpStatus: Record<string, number> = {
  * they only throw or pass domain errors here.
  */
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
-  // Log error for debugging
-  console.error(`[Error] ${err.name}: ${err.message}`, { stack: err.stack });
+  // Log error once via centralized logger. Include requestId when available.
+  const requestId = (req as any).requestId;
+  logger.error(`${err.name}: ${err.message}`, { requestId, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
 
   // Handle domain errors
   if (err instanceof DomainError) {
@@ -39,7 +41,8 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
     return res.status(status).json({
       error: {
         code: err.code,
-        message: err.message
+        message: err.message,
+        requestId
       }
     });
   }
@@ -52,7 +55,8 @@ const errorHandler = (err: Error, req: Request, res: Response, next: NextFunctio
   res.status(status).json({
     error: {
       code,
-      message
+      message,
+      requestId
     }
   });
 };

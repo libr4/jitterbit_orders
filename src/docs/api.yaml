@@ -5,30 +5,41 @@ info:
 paths:
   /auth/login:
     post:
-      summary: Login to receive JWT
+      tags:
+        - Auth
+      summary: Login and receive a JWT (also set as httpOnly cookie)
+      description: |
+        Authenticate with `username` and `password`. On success the response contains a JSON `token` and an httpOnly cookie named `token` is set. The token uses standard JWT `exp` claim for expiration.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Login'
+              $ref: '#/components/schemas/LoginRequest'
             example:
               username: "dev"
               password: "dev"
       responses:
         "200":
-          description: Success
+          description: Authentication successful — returns a JWT and sets httpOnly cookie
           content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
               example:
-                token: "jwt-token"
+                token: "eyJhbGciOiJI..."
         "400":
-          description: Validation error
+          $ref: '#/components/responses/ValidationError'
         "401":
-          description: Invalid credentials
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
   /order:
     post:
-      summary: Create order
+      tags:
+        - Orders
+      summary: Create an order (accepts incoming or already-mapped payload)
       security:
         - bearerAuth: []
       requestBody:
@@ -36,39 +47,87 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IncomingOrder'
+              $ref: '#/components/schemas/CreateOrderRequest'
             example:
               numeroPedido: "v10089015vdb-01"
               valorTotal: 10000
-              dataCriacao: "2023-07-19T12:24:11.5299601+00:00"
+              dataCriacao: "2023-07-19T12:24:11.529Z"
               items:
                 - idItem: "2434"
                   quantidadeItem: 1
                   valorItem: 1000
       responses:
         "201":
-          description: Created
+          description: Created — returns the created order representation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+              example:
+                orderId: "v10089015vdb-01"
+                value: 10000
+                creationDate: "2023-07-19T12:24:11.529Z"
+                items:
+                  - productId: 2434
+                    quantity: 1
+                    price: 1000
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
   /order/{orderId}:
     get:
-      summary: Get order
+      tags:
+        - Orders
+      summary: Retrieve an order by id
       security:
         - bearerAuth: []
       parameters:
         - name: orderId
           in: path
+          description: Order identifier (UUID or legacy string)
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: OK
+          description: Order found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+              example:
+                orderId: "v10089015vdb-01"
+                value: 10000
+                creationDate: "2023-07-19T12:24:11.529Z"
+                items:
+                  - productId: 2434
+                    quantity: 1
+                    price: 1000
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
     put:
-      summary: Replace order
+      tags:
+        - Orders
+      summary: Replace/update an existing order (full replacement)
       security:
         - bearerAuth: []
       parameters:
         - name: orderId
           in: path
+          description: Order identifier (UUID or legacy string)
           required: true
           schema:
             type: string
@@ -78,87 +137,307 @@ paths:
           application/json:
             schema:
               oneOf:
-                - $ref: '#/components/schemas/IncomingOrder'
-                - $ref: '#/components/schemas/MappedOrder'
+                - $ref: '#/components/schemas/CreateOrderRequest'
+                - $ref: '#/components/schemas/OrderResponse'
       responses:
         "200":
-          description: Updated
+          description: Updated — returns updated order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
     delete:
-      summary: Delete order
+      tags:
+        - Orders
+      summary: Delete an order by id
       security:
         - bearerAuth: []
       parameters:
         - name: orderId
           in: path
+          description: Order identifier (UUID or legacy string)
           required: true
           schema:
             type: string
       responses:
         "204":
-          description: Deleted
+          description: Deleted — no content
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
   /order/list:
     get:
-      summary: List orders
+      tags:
+        - Orders
+      summary: List orders with pagination
       security:
         - bearerAuth: []
       parameters:
         - name: page
           in: query
+          description: Page number (1-based)
           schema:
             type: integer
-        - name: size
+            minimum: 1
+            default: 1
+        - name: limit
           in: query
+          description: Page size (max 100)
           schema:
             type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
       responses:
         "200":
-          description: OK
+          description: Paginated list of orders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListResponse'
+              example:
+                total: 123
+                page: 1
+                size: 10
+                data:
+                  - orderId: "v10089015vdb-01"
+                    value: 10000
+                    creationDate: "2023-07-19T12:24:11.529Z"
+                    items:
+                      - productId: 2434
+                        quantity: 1
+                        price: 1000
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    ValidationError:
+      description: Validation failed for the request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Field 'numeroPedido' is required"
+              requestId: "req_12345"
+    Unauthorized:
+      description: Authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Invalid credentials"
+              requestId: "req_12345"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "NOT_FOUND"
+              message: "Order not found"
+              requestId: "req_12345"
+    Conflict:
+      description: Conflict — resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "DUPLICATE_ENTITY"
+              message: "Order already exists"
+              requestId: "req_12345"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "INTERNAL_ERROR"
+              message: "An unexpected error occurred"
+              requestId: "req_12345"
+
   schemas:
-    Login:
+    ErrorResponse:
       type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Machine-friendly error code
+            message:
+              type: string
+              description: Human-readable error message
+            requestId:
+              type: string
+              description: Correlation id for this request
+          required:
+            - code
+            - message
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
       properties:
         username:
           type: string
         password:
           type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token that may also be set as an httpOnly cookie named `token`
+
+    CreateOrderRequest:
+      oneOf:
+        - $ref: '#/components/schemas/IncomingOrder'
+        - $ref: '#/components/schemas/OrderResponse'
+
     IncomingOrder:
       type: object
+      required:
+        - numeroPedido
+        - valorTotal
+        - dataCriacao
+        - items
       properties:
         numeroPedido:
           type: string
+          description: Legacy or external order identifier
         valorTotal:
           type: number
+          minimum: 0
         dataCriacao:
           type: string
+          format: date-time
+          description: ISO-8601 date string
         items:
           type: array
+          minItems: 1
           items:
-            type: object
-            properties:
-              idItem:
-                type: string
-              quantidadeItem:
-                type: integer
-              valorItem:
-                type: number
-    MappedOrder:
+            $ref: '#/components/schemas/IncomingItem'
+
+    IncomingItem:
       type: object
+      required:
+        - idItem
+        - quantidadeItem
+        - valorItem
+      properties:
+        idItem:
+          type: string
+          description: External product id (string); must be castable to integer by the API
+        quantidadeItem:
+          type: integer
+          minimum: 0
+        valorItem:
+          type: number
+          minimum: 0
+
+    OrderItem:
+      type: object
+      required:
+        - productId
+        - quantity
+        - price
+      properties:
+        productId:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 0
+        price:
+          type: number
+          minimum: 0
+
+    OrderResponse:
+      type: object
+      required:
+        - orderId
+        - value
+        - creationDate
+        - items
       properties:
         orderId:
           type: string
         value:
           type: number
+          minimum: 0
         creationDate:
           type: string
+          format: date-time
         items:
           type: array
+          minItems: 1
           items:
-            type: object
-            properties:
-              productId:
-                type: integer
-              quantity:
-                type: integer
-              price:
-                type: number
+            $ref: '#/components/schemas/OrderItem'
+
+    OrderListResponse:
+      type: object
+      required:
+        - total
+        - page
+        - size
+        - data
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderResponse'
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Orders
+    description: Create, read, update, delete and list orders

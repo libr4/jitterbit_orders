@@ -8,7 +8,9 @@ const options = {
       title: 'Orders API',
       version: '1.0.0'
     },
-    servers: [{ url: `http://localhost:${config.PORT || 3000}` }],
+    // Use relative server URL so Swagger UI issues requests to the same origin
+    // this avoids hard-coding host/port and makes "Try it out" use the running app.
+    servers: [{ url: '/' }],
     components: {
       securitySchemes: {
         bearerAuth: {

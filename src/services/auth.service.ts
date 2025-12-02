@@ -59,8 +59,11 @@ export const verify = (token: string): TokenPayload => {
     const errorType = err.name || 'UnknownJwtError';
     const errorMessage = err.message || 'JWT verification failed';
     
-    // In a real app, send this to a logger service for monitoring
-    console.warn(`JWT verification failed: ${errorType} - ${errorMessage}`);
+    // Use centralized logger for JWT verification failures
+    // Logger will include request context when available via middleware
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const logger = require('../utils/logger').default;
+    logger.warn(`JWT verification failed: ${errorType} - ${errorMessage}`, { errorType, errorMessage });
     
     throw new InvalidTokenError('Invalid token');
   }
