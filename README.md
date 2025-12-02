@@ -22,10 +22,10 @@ docker-compose up -d
 npm install
 ```
 
-4. Apply Prisma schema and generate the client:
+4. Apply database migrations and generate the client:
 
 ```bash
-npx prisma db push --accept-data-loss
+npx prisma migrate deploy
 npx prisma generate
 ```
 
