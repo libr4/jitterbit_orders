@@ -1,6 +1,5 @@
 import orderService from '../../src/services/order.service';
 import * as repo from '../../src/db/orderRepository';
-import prisma from '../../src/db/prismaClient';
 import { DuplicateEntityError, NotFoundError } from '../../src/errors/domain';
 
 jest.mock('../../src/db/orderRepository');

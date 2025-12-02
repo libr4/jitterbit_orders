@@ -86,7 +86,7 @@ Authentication
 { "token": "<jwt>" }
 ```
 
-Orders (all endpoints require `Authorization: Bearer <token>`)
+Orders (all endpoints require httpOnly cookie or `Authorization: Bearer <token>`)
 
 - POST `/order` — create order
 	- Request (incoming format):
